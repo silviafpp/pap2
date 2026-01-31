@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.BusCardAppSplash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/green</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/bus</item>
+        <item name="postSplashScreenTheme">@style/Theme.BusCardApp</item>
+    </style>
+
+    <style name="Theme.BusCardApp" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
