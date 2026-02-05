@@ -6,88 +6,128 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun AuthScreen(authViewModel: AuthViewModel = viewModel()) {
+fun AuthScreen(viewModel: AuthViewModel) {
+    val authState by viewModel.authState.collectAsState()
+    val context = LocalContext.current
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoginMode by remember { mutableStateOf(false) } // False = Registo, True = Login
+    var otpCode by remember { mutableStateOf("") }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val message by authViewModel.authState.collectAsState()
-    val userExists by authViewModel.userExists.collectAsState()
+    // Controla se o utilizador está na aba de Login ou Registo
+    var isLoginMode by remember { mutableStateOf(true) }
+
+    // Detecta se o e-mail foi disparado com sucesso (Troca para ecrã de código)
+    val isWaitingForOtp = authState?.contains("Código enviado", ignoreCase = true) == true
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        // Título dinâmico conforme o estado
         Text(
-            text = if (isLoginMode) "Login" else "Criar Conta",
-            style = MaterialTheme.typography.headlineMedium
+            text = when {
+                isWaitingForOtp -> "Confirmar E-mail"
+                isLoginMode -> "Login"
+                else -> "Criar Conta"
+            },
+            style = MaterialTheme.typography.headlineLarge
         )
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Botão Google
-        Button(
-            onClick = { authViewModel.signInWithGoogle(context) },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-        ) {
-            Text(if (isLoginMode) "Entrar com Google" else "Registar com Google")
-        }
+        if (isWaitingForOtp) {
+            // --- MODO DE VERIFICAÇÃO (OTP) ---
+            Text(
+                text = "Insira os 6 dígitos enviados para\n$email",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
 
-        Text(text = "ou", modifier = Modifier.padding(vertical = 16.dp))
+            OutlinedTextField(
+                value = otpCode,
+                onValueChange = { if (it.length <= 6) otpCode = it },
+                label = { Text("Código de Verificação") },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        // Campos de Texto (Só aparecem se não estiver a usar Google diretamente)
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("Email") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = password, onValueChange = { password = it }, label = { Text("Senha") }, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(16.dp))
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Botão Principal Manual
-        // Na tua AuthScreen, dentro da Column:
-        Button(
-            onClick = {
-                if (isLoginMode) {
-                    authViewModel.signInWithGoogle(context) // Login normal (deixa entrar sempre)
-                } else {
-                    authViewModel.signUpWithGoogle(context) // Registo (bloqueia se já existir)
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (isLoginMode) "Entrar com Google" else "Registar com Google")
-        }
-
-        // --- LÓGICA DE VERIFICAÇÃO ---
-        if (userExists) {
-            Spacer(modifier = Modifier.height(10.dp))
-            // Aviso de que o user já existe
-            Surface(
-                color = MaterialTheme.colorScheme.errorContainer,
-                shape = MaterialTheme.shapes.medium
+            Button(
+                onClick = { viewModel.verifyOtp(email, otpCode) },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.padding(8.dp)) {
-                    Text(text = message ?: "", color = MaterialTheme.colorScheme.onErrorContainer)
-
-                    // Botão para forçar a ida para a página de Login
-                    TextButton(onClick = { isLoginMode = true }) {
-                        Text("Ir para página de Login")
-                    }
-                }
+                Text("Verificar Código")
             }
+
+            TextButton(onClick = { viewModel.signUpWithEmail(email, password) }) {
+                Text("Reenviar e-mail")
+            }
+
         } else {
-            message?.let { Text(it, modifier = Modifier.padding(top = 8.dp)) }
+            // --- MODO ENTRAR / REGISTAR ---
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("E-mail") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Palavra-passe") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    if (isLoginMode) viewModel.signInWithEmail(email, password)
+                    else viewModel.signUpWithEmail(email, password)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isLoginMode) "Entrar" else "Registar")
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Opção Google (Sempre visível fora do OTP)
+            OutlinedButton(
+                onClick = { viewModel.signInWithGoogle(context) },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Continuar com Google")
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            TextButton(onClick = {
+                isLoginMode = !isLoginMode
+                otpCode = "" // Limpa o código ao trocar de modo
+            }) {
+                Text(if (isLoginMode) "Não tem conta? Registe-se" else "Já tem conta? Faça Login")
+            }
         }
 
-        // Alternar entre telas manualmente
-        TextButton(onClick = { isLoginMode = !isLoginMode }) {
-            Text(if (isLoginMode) "Não tens conta? Regista-te" else "Já tens conta? Faz login")
+        // Feedback de Status (Sucesso ou Erro)
+        authState?.let {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = it,
+                color = if (it.contains("Erro", ignoreCase = true) || it.contains("inválido"))
+                    MaterialTheme.colorScheme.error
+                else
+                    MaterialTheme.colorScheme.primary
+            )
         }
     }
 }
