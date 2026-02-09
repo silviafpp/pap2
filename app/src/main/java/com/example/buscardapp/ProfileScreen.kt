@@ -12,10 +12,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.jan.supabase.auth.auth
 
 @Composable
 fun ProfileScreen(
+    authViewModel: AuthViewModel, // Removido o = viewModel() aqui para evitar conflitos de estado
     isDarkMode: Boolean,
     onThemeChange: (Boolean) -> Unit
 ) {
@@ -27,6 +29,7 @@ fun ProfileScreen(
             .fillMaxSize()
             .padding(24.dp)
     ) {
+        // TÍTULO
         Text(
             text = "Perfil",
             style = MaterialTheme.typography.headlineLarge,
@@ -35,7 +38,7 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Card de Informação do Utilizador
+        // CARD UTILIZADOR
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -67,7 +70,7 @@ fun ProfileScreen(
             color = MaterialTheme.colorScheme.primary
         )
 
-        // Seletor de Tema
+        // SELETOR DE TEMA
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -90,20 +93,14 @@ fun ProfileScreen(
             )
         }
 
-        // Opções Adicionais
-        ProfileOptionItem(icon = Icons.Default.Edit, title = "Editar Perfil") {
-            // Ação futura
-        }
-
-        ProfileOptionItem(icon = Icons.Default.CreditCard, title = "O meu Cartão") {
-            // Ação futura
-        }
+        ProfileOptionItem(icon = Icons.Default.Edit, title = "Editar Perfil") { /* Futuro */ }
+        ProfileOptionItem(icon = Icons.Default.CreditCard, title = "O meu Cartão") { /* Futuro */ }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Botão de Logout
+        // BOTÃO DE LOGOUT CORRIGIDO
         Button(
-            onClick = { /* Lógica de signout aqui */ },
+            onClick = { authViewModel.signOut() },
             modifier = Modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
             shape = MaterialTheme.shapes.medium

@@ -110,4 +110,16 @@ class AuthViewModel : ViewModel() {
             }
         }
     }
+
+    // No AuthViewModel.kt
+    fun signOut() {
+        viewModelScope.launch {
+            try {
+                auth.signOut()
+                _authState.value = "Logout efetuado" // Isto fará o NavGraph voltar ao ecrã de Login
+            } catch (e: Exception) {
+                _authState.value = "Erro ao sair: ${e.localizedMessage}"
+            }
+        }
+    }
 }
