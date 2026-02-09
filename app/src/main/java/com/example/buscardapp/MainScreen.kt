@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -17,9 +18,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 
 @Composable
-fun MainScreen(userViewModel: UserViewModel = androidx.lifecycle.viewmodel.compose.viewModel()) {
+fun MainScreen(
+    authViewModel: AuthViewModel, // Nome corrigido para minúscula por convenção
+    isDarkMode: Boolean,
+    onThemeToggle: (Boolean) -> Unit // Adicionado para controlar o tema
+) {
     val navController = rememberNavController()
 
+    // O Scaffold aqui não tem topBar, por isso o nome da App já não aparece em cima!
     Scaffold(
         bottomBar = { BottomNavigationBar(navController) }
     ) { innerPadding ->
@@ -27,7 +33,13 @@ fun MainScreen(userViewModel: UserViewModel = androidx.lifecycle.viewmodel.compo
             NavHost(navController = navController, startDestination = "home") {
                 composable("home") { HomeScreen() }
                 composable("routes") { RoutesScreen() }
-                composable("profile") { ProfileScreen(userViewModel) }
+                composable("profile") {
+                    // Passamos os parâmetros necessários para o ProfileScreen
+                    ProfileScreen(
+                        isDarkMode = isDarkMode,
+                        onThemeChange = onThemeToggle
+                    )
+                }
             }
         }
     }

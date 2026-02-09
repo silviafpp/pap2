@@ -1,41 +1,136 @@
 package com.example.buscardapp
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.github.jan.supabase.auth.auth
 
 @Composable
-fun ProfileScreen(viewModel: UserViewModel) {
-    val email by viewModel.userEmail.collectAsState()
+fun ProfileScreen(
+    isDarkMode: Boolean,
+    onThemeChange: (Boolean) -> Unit
+) {
+    val user = SupabaseClient.supabase.auth.currentUserOrNull()
+    val email = user?.email ?: "utilizador@email.com"
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp)
     ) {
-        Surface(modifier = Modifier.size(100.dp), shape = CircleShape, color = Color.LightGray) {
-            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.padding(25.dp))
+        Text(
+            text = "Perfil",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Card de Informação do Utilizador
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(50.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(text = email, fontWeight = FontWeight.Bold)
+                    Text(text = "S. Miguel, Açores", fontSize = 12.sp, color = Color.Gray)
+                }
+            }
         }
-        Spacer(modifier = Modifier.height(20.dp))
-        Text("Perfil do Utilizador", style = MaterialTheme.typography.titleLarge)
-        Text(email, color = Color.Gray)
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Text(
+            text = "Configurações",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        // Seletor de Tema
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (isDarkMode) Icons.Default.DarkMode else Icons.Default.LightMode,
+                    contentDescription = null,
+                    tint = Color.Gray
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(text = "Modo Escuro")
+            }
+            Switch(
+                checked = isDarkMode,
+                onCheckedChange = { onThemeChange(it) }
+            )
+        }
+
+        // Opções Adicionais
+        ProfileOptionItem(icon = Icons.Default.Edit, title = "Editar Perfil") {
+            // Ação futura
+        }
+
+        ProfileOptionItem(icon = Icons.Default.CreditCard, title = "O meu Cartão") {
+            // Ação futura
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
+        // Botão de Logout
         Button(
-            onClick = { viewModel.signOut() },
+            onClick = { /* Lógica de signout aqui */ },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+            shape = MaterialTheme.shapes.medium
         ) {
-            Text("Terminar Sessão")
+            Icon(Icons.Default.Logout, contentDescription = null, tint = Color.White)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Sair da Conta", color = Color.White)
         }
+    }
+}
+
+@Composable
+fun ProfileOptionItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.Gray)
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(text = title, modifier = Modifier.weight(1f))
+        Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
     }
 }
