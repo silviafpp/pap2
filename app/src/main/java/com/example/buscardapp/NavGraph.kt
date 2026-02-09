@@ -9,20 +9,22 @@ import androidx.navigation.compose.rememberNavController
 fun NavGraph(
     authViewModel: AuthViewModel,
     isDarkMode: Boolean,
-    onThemeToggle: (Boolean) -> Unit // Agora aceita o Boolean do Switch
+    onThemeToggle: (Boolean) -> Unit,
+    onCardClick: () -> Unit // <--- 1. NOVO PARÂMETRO
 ) {
     val authState by authViewModel.authState.collectAsState()
     val navController = rememberNavController()
 
-    // Lógica de Autenticação: Se não estiver logado, mostra AuthScreen
+    // Lógica de Autenticação
     if (authState != "Login efetuado!" && authState != "Bem-vindo!") {
         AuthScreen(authViewModel)
     } else {
-        // Se estiver logado, usamos o Scaffold da MainScreen que contém a navegação
+        // Passamos o onCardClick para a MainScreen
         MainScreen(
             authViewModel = authViewModel,
             isDarkMode = isDarkMode,
-            onThemeToggle = onThemeToggle
+            onThemeToggle = onThemeToggle,
+            onCardClick = onCardClick // <--- 2. PASSAR PARA A MAIN SCREEN
         )
     }
 }

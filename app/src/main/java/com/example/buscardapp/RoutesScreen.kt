@@ -7,7 +7,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DirectionsBus
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,119 +24,147 @@ fun RoutesScreen() {
     var routesList by remember { mutableStateOf(listOf<BusRoute>()) }
     var originSelected by remember { mutableStateOf("Selecionar Origem") }
     var destSelected by remember { mutableStateOf("Selecionar Destino") }
-    var numLugares by remember { mutableIntStateOf(1) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Busca as rotas na Base de Dados do Supabase
+    // 1. Carregar todas as rotas da Base de Dados
     LaunchedEffect(Unit) {
         try {
             val results = SupabaseClient.supabase.postgrest["bus_routes"]
                 .select().decodeList<BusRoute>()
             routesList = results
         } catch (e: Exception) {
-            println("Erro Supabase: ${e.message}")
+            println("Erro ao carregar rotas: ${e.message}")
         } finally {
             isLoading = false
         }
     }
 
-    val origins = routesList.map { it.origin }.distinct()
-    val destinations = routesList.filter { it.origin == originSelected }.map { it.destination }.distinct()
+    // 2. Lógica para extrair opções únicas para as caixas de seleção
+    val origins = routesList.map { it.origin }.distinct().sorted()
+    val destinations = routesList
+        .filter { it.origin == originSelected }
+        .map { it.destination }
+        .distinct()
+        .sorted()
+
+    // 3. Filtragem da lista final baseada nas seleções
+    val filteredRoutes = routesList.filter {
+        (originSelected == "Selecionar Origem" || it.origin == originSelected) &&
+                (destSelected == "Selecionar Destino" || it.destination == destSelected)
+    }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Pesquisar Viagens", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(
+            text = "Explorar Rotas",
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // Card de Seleção
-        Card(elevation = CardDefaults.cardElevation(4.dp)) {
+        // --- CAIXAS DE SELEÇÃO (DROPDOWNS) ---
+        Card(
+            elevation = CardDefaults.cardElevation(2.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                // FUNÇÃO DROPDOWN (Definida abaixo para evitar erro de referência)
-                RouteDropdownCustom(label = "Partida", options = origins, selected = originSelected) {
-                    originSelected = it
-                    destSelected = "Selecionar Destino" // Reseta o destino ao mudar origem
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                RouteDropdownCustom(label = "Destino", options = destinations, selected = destSelected) {
-                    destSelected = it
+                // Seleção de Origem
+                RouteDropdownSelector(
+                    label = "De onde parte?",
+                    selectedOption = originSelected,
+                    options = origins
+                ) { selection ->
+                    originSelected = selection
+                    destSelected = "Selecionar Destino" // Reseta o destino ao mudar a origem
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // SELETOR DE LUGARES
-                Text("Quantidade de Lugares", fontSize = 12.sp, color = Color.Gray)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Groups, contentDescription = null, tint = Color.Gray)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("$numLugares Passageiro(s)", fontWeight = FontWeight.Medium)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { if (numLugares > 1) numLugares-- }) {
-                            Icon(Icons.Default.RemoveCircleOutline, contentDescription = null)
-                        }
-                        Text("$numLugares", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        IconButton(onClick = { if (numLugares < 10) numLugares++ }) {
-                            Icon(Icons.Default.AddCircleOutline, contentDescription = null)
-                        }
-                    }
+                // Seleção de Destino
+                RouteDropdownSelector(
+                    label = "Para onde vai?",
+                    selectedOption = destSelected,
+                    options = destinations,
+                    enabled = originSelected != "Selecionar Origem"
+                ) { selection ->
+                    destSelected = selection
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        if (isLoading) {
-            CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
-        } else {
-            Text("Resultados", style = MaterialTheme.typography.titleMedium)
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxSize().padding(top = 10.dp)
-            ) {
-                val filtered = routesList.filter {
-                    it.origin == originSelected && it.destination == destSelected
-                }
+        // --- LISTA DE RESULTADOS FILTRADOS ---
+        Text(
+            text = "Rotas Disponíveis (${filteredRoutes.size})",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.Gray
+        )
 
-                items(filtered) { route ->
-                    RouteItemWithPrice(route = route, lugares = numLugares)
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(filteredRoutes) { route ->
+                    RouteResultItem(route)
                 }
             }
         }
     }
 }
 
-// --- FUNÇÕES AUXILIARES (Para não dar Unresolved Reference) ---
-
 @Composable
-fun RouteDropdownCustom(label: String, options: List<String>, selected: String, onSelect: (String) -> Unit) {
+fun RouteDropdownSelector(
+    label: String,
+    selectedOption: String,
+    options: List<String>,
+    enabled: Boolean = true,
+    onOptionSelected: (String) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
 
     Column {
-        Text(label, fontSize = 12.sp, color = Color.Gray)
+        Text(text = label, fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(4.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, Color.LightGray, RoundedCornerShape(8.dp))
-                .clickable { expanded = true }
-                .padding(12.dp)
+                .border(
+                    width = 1.dp,
+                    color = if (enabled) Color.LightGray else Color(0xFFF00F0F0),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                .clickable(enabled = enabled) { expanded = true }
+                .padding(14.dp)
         ) {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(selected)
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = selectedOption,
+                    color = if (enabled) Color.Black else Color.LightGray
+                )
+                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.fillMaxWidth(0.8f)
+            ) {
                 options.forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option) },
                         onClick = {
-                            onSelect(option)
+                            onOptionSelected(option)
                             expanded = false
                         }
                     )
@@ -146,20 +175,50 @@ fun RouteDropdownCustom(label: String, options: List<String>, selected: String, 
 }
 
 @Composable
-fun RouteItemWithPrice(route: BusRoute, lugares: Int) {
-    val total = (route.price ?: 0.0) * lugares
+fun RouteResultItem(route: BusRoute) {
     Card(
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.DirectionsBus, contentDescription = null)
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("${route.origin} → ${route.destination}", fontWeight = FontWeight.Bold)
-                Text("Duração: ${route.duration}", fontSize = 12.sp)
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            ) {
+                Icon(
+                    Icons.Default.DirectionsBus,
+                    contentDescription = null,
+                    modifier = Modifier.padding(8.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
-            Text("${String.format("%.2f", total)}€", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${route.origin} → ${route.destination}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = "Linha ${route.route_number} • Duração estimada: ${route.duration}",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+
+            Text(
+                text = "${String.format("%.2f", route.price)}€",
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

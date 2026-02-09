@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">BusCardApp</string>
+    <string name="servicedesc">Serviço de Cartão de Autocarro</string>
+    <string name="aiddesc">Pagamento São Miguel</string>
 </resources>

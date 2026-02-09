@@ -20,7 +20,8 @@ import androidx.navigation.compose.rememberNavController
 fun MainScreen(
     authViewModel: AuthViewModel,
     isDarkMode: Boolean,
-    onThemeToggle: (Boolean) -> Unit
+    onThemeToggle: (Boolean) -> Unit,
+    onCardClick: () -> Unit // <--- 1. ADICIONADO AQUI
 ) {
     val navController = rememberNavController()
 
@@ -29,10 +30,12 @@ fun MainScreen(
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             NavHost(navController = navController, startDestination = "home") {
-                composable("home") { HomeScreen() }
+                composable("home") {
+                    // 2. PASSAR PARA A HOMESCREEN (onde está o desenho do cartão)
+                    HomeScreen(onCardClick = onCardClick)
+                }
                 composable("routes") { RoutesScreen() }
                 composable("profile") {
-                    // CORREÇÃO: Adicionado o authViewModel aqui!
                     ProfileScreen(
                         authViewModel = authViewModel,
                         isDarkMode = isDarkMode,
