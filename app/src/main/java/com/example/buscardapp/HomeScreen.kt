@@ -1,6 +1,5 @@
 package com.example.buscardapp
 
-import android.util.Log
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,90 +9,136 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.auth.auth
 
 @Composable
-fun HomeScreen(onCardClick: () -> Unit) {
-    // Usamos dados de teste (Hardcoded) para garantir que o cartão aparece
-    val cardType = "Semanal"
-    val tripsLeft = 8
+fun HomeScreen(
+    onCardClick: () -> Unit
+) {
+    var userProfile by remember { mutableStateOf<UserProfile?>(null) }
+    var userCard by remember { mutableStateOf<UserCard?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        try {
+            val user = SupabaseClient.supabase.auth.currentUserOrNull()
+            user?.id?.let { uid ->
+                userProfile = SupabaseClient.supabase.postgrest["profiles"]
+                    .select { filter { eq("id", uid) } }
+                    .decodeSingleOrNull<UserProfile>()
+
+                userCard = SupabaseClient.supabase.postgrest["user_cards"]
+                    .select { filter { eq("user_id", uid) } }
+                    .decodeSingleOrNull<UserCard>()
+            }
+        } catch (e: Exception) {
+            println("Erro Home: ${e.message}")
+        } finally {
+            isLoading = false
+        }
+    }
+
+    val nomeExibicao = if (userProfile != null && !userProfile?.firstName.isNullOrBlank()) {
+        "${userProfile?.firstName} ${userProfile?.lastName}"
+    } else {
+        "Utilizador"
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .background(Color(0xFFF8F9FA))
             .padding(20.dp)
+            .verticalScroll(rememberScrollState())
     ) {
-        Text("O meu Passe", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(20.dp))
+        Text(
+            text = "Olá, $nomeExibicao!",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = 20.dp, bottom = 20.dp)
+        )
 
-        // CARTÃO DIGITAL
+        // CARTÃO COM NOME DO UTILIZADOR
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
-                .clickable {
-                    Log.d("FLUXO", "0. Clique na HomeScreen")
-                    onCardClick()
-                },
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF121212))
+                .clickable { onCardClick() },
+            shape = RoundedCornerShape(20.dp),
+            elevation = CardDefaults.cardElevation(8.dp)
         ) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Icon(Icons.Default.Nfc, null, tint = Color.Cyan)
-                    Text(cardType.uppercase(), color = Color.Cyan, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(Color(0xFF006D4E), Color(0xFF00E676))
+                        )
+                    )
+                    .padding(24.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column {
+                            Text("BUS CARD", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                            Text(
+                                text = nomeExibicao.uppercase(), // NOME NO CARTÃO
+                                color = Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Icon(Icons.Default.Nfc, null, tint = Color.White)
+                    }
+
+                    Column {
+                        Text("Saldo Disponível", color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp)
+                        Text(
+                            text = "${userCard?.saldo ?: 0.0}€",
+                            color = Color.White,
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.weight(1f))
-                Text("$tripsLeft VIAGENS RESTANTES", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(30.dp))
 
-        // DASHBOARD ESTATÍSTICAS
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatBox(Modifier.weight(1f), "Viagens", "12", Icons.Default.ConfirmationNumber)
-            StatBox(Modifier.weight(1f), "Minutos", "450", Icons.Default.Timer)
-        }
+        Text("Ações Rápidas", fontWeight = FontWeight.Bold, color = Color.Gray)
+        Spacer(modifier = Modifier.height(15.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Text("Viagens Recentes", fontWeight = FontWeight.Bold)
-        RecentTripItem("Ponta Delgada", "Ribeira Grande", "14:20")
-    }
-}
-
-// FUNÇÕES AUXILIARES SEMPRE FORA
-@Composable
-fun StatBox(modifier: Modifier, title: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F1F1))) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Icon(icon, null, modifier = Modifier.size(20.dp))
-            Text(value, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text(title, fontSize = 12.sp, color = Color.Gray)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(15.dp)) {
+            // Apenas uma chamada para cada ação
+            QuickActionButton("Carregar", Icons.Default.AddCard, Modifier.weight(1f))
+            QuickActionButton("Histórico", Icons.Default.History, Modifier.weight(1f))
         }
     }
 }
 
+// GARANTE QUE ESTA FUNÇÃO SÓ APARECE UMA VEZ NO FICHEIRO
 @Composable
-fun RecentTripItem(from: String, to: String, time: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-        Icon(Icons.Default.History, null, tint = Color.Gray)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text("$from → $to", fontWeight = FontWeight.Medium)
-            Text(time, fontSize = 12.sp, color = Color.Gray)
+fun QuickActionButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier) {
+    Surface(
+        modifier = modifier.height(90.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(icon, null, tint = Color(0xFF006D4E))
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
-    }
-}
-
-@Composable
-fun CreateCardPlaceholder(onClick: () -> Unit) {
-    Box(modifier = Modifier.fillMaxWidth().height(200.dp).clickable { onClick() }) {
-        Text("Adicionar Cartão")
     }
 }
