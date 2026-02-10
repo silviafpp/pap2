@@ -64,7 +64,7 @@ fun HomeScreen(
             modifier = Modifier.padding(top = 20.dp, bottom = 20.dp)
         )
 
-        // CARTÃO COM NOME DO UTILIZADOR
+        // CARTÃO COM NOME E TIPO DE CARTÃO
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -86,9 +86,15 @@ fun HomeScreen(
                 Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
-                            Text("BUS CARD", color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp)
+                            // TIPO DE CARTÃO ADICIONADO AQUI
                             Text(
-                                text = nomeExibicao.uppercase(), // NOME NO CARTÃO
+                                text = (userCard?.type ?: "BUS CARD").uppercase(),
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = nomeExibicao.uppercase(),
                                 color = Color.White,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold
@@ -116,14 +122,12 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(15.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(15.dp)) {
-            // Apenas uma chamada para cada ação
             QuickActionButton("Carregar", Icons.Default.AddCard, Modifier.weight(1f))
             QuickActionButton("Histórico", Icons.Default.History, Modifier.weight(1f))
         }
     }
 }
 
-// GARANTE QUE ESTA FUNÇÃO SÓ APARECE UMA VEZ NO FICHEIRO
 @Composable
 fun QuickActionButton(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier) {
     Surface(
