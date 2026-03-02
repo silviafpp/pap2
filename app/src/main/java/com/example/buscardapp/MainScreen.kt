@@ -21,7 +21,9 @@ fun MainScreen(
     authViewModel: AuthViewModel,
     isDarkMode: Boolean,
     onThemeToggle: (Boolean) -> Unit,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit,
+    physicalCardUid: String? = null,
+    onPhysicalCardConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
 
@@ -31,12 +33,11 @@ fun MainScreen(
         Box(modifier = Modifier.padding(innerPadding)) {
             NavHost(navController = navController, startDestination = "home") {
                 composable("home") {
-                    // Aqui chamamos a HomeScreen.
-                    // Como a lógica de "Diário/Semanal/Mensal" está lá dentro,
-                    // não precisamos de passar o onAddCardClick nem criar rotas novas.
                     HomeScreen(
                         isDarkMode = isDarkMode,
-                        onCardClick = onCardClick
+                        onCardClick = onCardClick,
+                        physicalCardUid = physicalCardUid,
+                        onPhysicalCardConsumed = onPhysicalCardConsumed
                     )
                 }
 

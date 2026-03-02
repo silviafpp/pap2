@@ -25,7 +25,7 @@ class AuthViewModel : ViewModel() {
     val authState: StateFlow<String?> = _authState
 
     private val auth = SupabaseClient.supabase.auth
-    private val WEB_CLIENT_ID = "744647664470-5jmtbldvl5diua1870snreairf6pp7st.apps.googleusercontent.com"
+    private val WEB_CLIENT_ID = "674496926042-i3andsfd92nme1akv1cnteiniv269437.apps.googleusercontent.com"
 
     // Função auxiliar para o Nonce do Google
     private fun generateNonce(): Pair<String, String> {
@@ -38,7 +38,6 @@ class AuthViewModel : ViewModel() {
     }
 
     // --- NOVA FUNÇÃO GOOGLE ---
-// --- FUNÇÃO GOOGLE CORRIGIDA ---
     fun signInWithGoogle(context: Context) {
         viewModelScope.launch {
             _authState.value = "A conectar com Google..."
@@ -47,16 +46,9 @@ class AuthViewModel : ViewModel() {
                 val googleIdOption = GetGoogleIdOption.Builder()
                     .setServerClientId(WEB_CLIENT_ID)
                     .setNonce(hashedNonce)
-                    // CORREÇÃO 1: Desativar o filtro para garantir que a janela de contas apareça
-                    .setFilterByAuthorizedAccounts(false)
-                    // CORREÇÃO 2: Garantir que o ID Token seja solicitado explicitamente
-                    .setAutoSelectEnabled(false)
                     .build()
 
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
-
+                val request = GetCredentialRequest.Builder().addCredentialOption(googleIdOption).build()
                 val result = CredentialManager.create(context).getCredential(context, request)
                 val credential = GoogleIdTokenCredential.createFrom(result.credential.data)
 
@@ -67,9 +59,7 @@ class AuthViewModel : ViewModel() {
                 }
                 _authState.value = "Login efetuado!"
             } catch (e: Exception) {
-                // Melhor detalhamento do erro para sabermos o que o framework diz
-                _authState.value = "Erro Google: ${e.message}"
-                e.printStackTrace()
+                _authState.value = "Erro Google: ${e.localizedMessage}"
             }
         }
     }

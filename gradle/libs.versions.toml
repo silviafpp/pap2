@@ -12,6 +12,7 @@ composeBom = "2025.12.01"
 material3 = "1.4.0"
 serializationJson = "1.9.0"
 navigationCompose = "2.9.7"
+uiGeometry = "1.10.3"
 [libraries]
 activity-compose = { module = "androidx.activity:activity-compose" }
 #noinspection SimilarGradleDependency
@@ -37,6 +38,7 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3",
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serializationJson" }
 material3 = { module = "androidx.compose.material3:material3" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+androidx-compose-ui-geometry = { group = "androidx.compose.ui", name = "ui-geometry", version.ref = "uiGeometry" }
 #noinspection SimilarGradleDependency
 
 [plugins]

@@ -12,7 +12,12 @@
           "package_name": "com.example.buscardapp"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "674496926042-med9inho9bqcpq3p73o3sgbne75ir0ql.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAEshYCLMXivSgksTRDMKh5sT_Lajm3a04"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "674496926042-med9inho9bqcpq3p73o3sgbne75ir0ql.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

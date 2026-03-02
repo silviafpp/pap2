@@ -43,6 +43,7 @@ android {
     // Compose
 dependencies {
     implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.ui.geometry)
     // 1. JETPACK COMPOSE (Using BOM for version management)
     // The BOM ensures all compose libraries (ui, material3, etc.) are compatible.
     val composeBom = platform("androidx.compose:compose-bom:2025.12.00")
@@ -80,6 +81,7 @@ dependencies {
     implementation("androidx.biometric:biometric:1.2.0-alpha05")
 
     implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
 
 }

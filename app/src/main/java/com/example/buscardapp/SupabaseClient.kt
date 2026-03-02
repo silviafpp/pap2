@@ -14,7 +14,6 @@ object SupabaseClient {
     ) {
         install(Postgrest)
         install(Auth) {
-            // Isto ajuda a evitar o erro de refresh token
             autoLoadFromStorage = true
             alwaysAutoRefresh = true
         }

@@ -8,7 +8,9 @@ fun NavGraph(
     authViewModel: AuthViewModel,
     isDarkMode: Boolean,
     onThemeToggle: (Boolean) -> Unit,
-    onCardClick: () -> Unit
+    onCardClick: () -> Unit,
+    physicalCardUid: String? = null,          // ← NOVO
+    onPhysicalCardConsumed: () -> Unit = {}   // ← NOVO
 ) {
     val authState by authViewModel.authState.collectAsState()
     val navController = rememberNavController()
@@ -22,7 +24,9 @@ fun NavGraph(
                     authViewModel = authViewModel,
                     isDarkMode = isDarkMode,
                     onThemeToggle = onThemeToggle,
-                    onCardClick = onCardClick
+                    onCardClick = onCardClick,
+                    physicalCardUid = physicalCardUid,
+                    onPhysicalCardConsumed = onPhysicalCardConsumed
                 )
             }
         }
