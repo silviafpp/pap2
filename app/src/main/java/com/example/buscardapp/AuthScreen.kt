@@ -28,59 +28,42 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.sp
 
-// ── Paleta de Cores ──────────────────────────────────────────────────────────
-private val BgDeep        = Color(0xFF0A0F14)
-private val BgCard        = Color(0xFF111920)
-private val GreenPrimary  = Color(0xFF22C55E)
-private val GreenDark     = Color(0xFF16A34A)
-private val TextPrimary   = Color(0xFFF0F4F8)
-private val TextSecondary = Color(0xFF8A9BB0)
-private val InputBg       = Color(0xFF182130)
-private val InputBorder   = Color(0xFF1E2D3D)
-private val ErrorColor    = Color(0xFFEF4444)
+// Todas as cores vêm de AppColors.kt
 
 @Composable
 fun AuthScreen(authViewModel: AuthViewModel) {
-    var isLogin by remember { mutableStateOf(true) }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var firstName by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") }
-    var otpCode by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    // ── FIX: estado estável para o passo OTP ─────────────────────────────────
-    // Não dependemos da mensagem do authState para controlar o ecrã OTP.
-    // isOtpStep só passa a true quando o Supabase confirma o envio do código,
-    // e só volta a false após sucesso ou erro definitivo.
-    var isOtpStep by remember { mutableStateOf(false) }
+    var isLogin          by remember { mutableStateOf(true) }
+    var email            by remember { mutableStateOf("") }
+    var password         by remember { mutableStateOf("") }
+    var firstName        by remember { mutableStateOf("") }
+    var lastName         by remember { mutableStateOf("") }
+    var otpCode          by remember { mutableStateOf("") }
+    var passwordVisible  by remember { mutableStateOf(false) }
+    var isOtpStep        by remember { mutableStateOf(false) }
 
     val authState by authViewModel.authState.collectAsState()
     val context = LocalContext.current
 
-    // Quando o estado indica que o código foi enviado, ativamos o ecrã OTP
     LaunchedEffect(authState) {
         when {
             authState?.contains("Verifique") == true -> isOtpStep = true
             authState == "Login efetuado!"            -> isOtpStep = false
-            authState == "Código inválido."           -> { /* mantém OTP visível para o user tentar de novo */ }
         }
     }
 
     val isError = authState?.startsWith("Erro") == true || authState == "Código inválido."
 
-    // Animação de brilho de fundo
     val infiniteTransition = rememberInfiniteTransition(label = "glow")
     val glowAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.3f,
-        targetValue  = 0.7f,
-        animationSpec = infiniteRepeatable(
-            animation  = tween(2500, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "glowAlpha"
+        initialValue  = 0.3f,
+        targetValue   = 0.7f,
+        animationSpec = infiniteRepeatable(tween(2500, easing = EaseInOutSine), RepeatMode.Reverse),
+        label         = "glowAlpha"
     )
 
     Box(
@@ -88,7 +71,7 @@ fun AuthScreen(authViewModel: AuthViewModel) {
             .fillMaxSize()
             .background(BgDeep)
     ) {
-        // Decoração de fundo — glow verde suave
+        // Glow de fundo
         Box(
             modifier = Modifier
                 .size(320.dp)
@@ -114,36 +97,41 @@ fun AuthScreen(authViewModel: AuthViewModel) {
         ) {
             Spacer(Modifier.height(72.dp))
 
-            // ── Logo ─────────────────────────────────────────────────────────
+            // ── Logo ──────────────────────────────────────────────────────────
             Box(
                 modifier = Modifier
-                    .size(72.dp)
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Brush.linearGradient(listOf(GreenPrimary, GreenDark))),
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(BgDeep),
                 contentAlignment = Alignment.Center
             ) {
-                Text("🚌", fontSize = 32.sp)
+                Image(
+                    painter            = painterResource(id = R.drawable.ic_launcher_green),
+                    contentDescription = "Logo",
+                    contentScale       = ContentScale.Fit,
+                    modifier           = Modifier.size(72.dp)
+                )
             }
 
             Spacer(Modifier.height(20.dp))
 
             Text(
-                text = "Azores Bus Card",
-                color = TextPrimary,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold,
+                text          = "Azores Bus Card",
+                color         = TextPrimary,
+                fontSize      = 26.sp,
+                fontWeight    = FontWeight.Bold,
                 letterSpacing = (-0.5).sp
             )
             Text(
-                text = "O seu passe digital nos Açores",
-                color = TextSecondary,
+                text     = "O seu passe digital nos Açores",
+                color    = TextSecondary,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
 
             Spacer(Modifier.height(40.dp))
 
-            // ── Card Principal ────────────────────────────────────────────────
+            // ── Card principal ─────────────────────────────────────────────────
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -155,23 +143,24 @@ fun AuthScreen(authViewModel: AuthViewModel) {
                 Column {
                     if (!isOtpStep) {
                         TabToggle(isLogin = isLogin, onToggle = {
-                            isLogin = it
-                            email = ""; password = ""; firstName = ""; lastName = ""
+                            isLogin   = it
+                            email     = ""; password  = ""
+                            firstName = ""; lastName  = ""
                         })
                         Spacer(Modifier.height(28.dp))
                     }
 
                     AnimatedContent(
-                        targetState = isOtpStep,
+                        targetState  = isOtpStep,
                         transitionSpec = { fadeIn(tween(300)) togetherWith fadeOut(tween(200)) },
-                        label = "formTransition"
+                        label        = "formTransition"
                     ) { otp ->
                         if (otp) {
                             OtpForm(
-                                email    = email,
-                                otpCode  = otpCode,
+                                email       = email,
+                                otpCode     = otpCode,
                                 onOtpChange = { otpCode = it },
-                                onVerify = { authViewModel.verifyOtp(email, otpCode) }
+                                onVerify    = { authViewModel.verifyOtp(email, otpCode) }
                             )
                         } else {
                             Column {
@@ -212,17 +201,17 @@ fun AuthScreen(authViewModel: AuthViewModel) {
                                 Spacer(Modifier.height(12.dp))
 
                                 StyledTextField(
-                                    value               = password,
-                                    onValueChange       = { password = it },
-                                    label               = "Password",
-                                    leadingIcon         = Icons.Default.Lock,
-                                    keyboardType        = KeyboardType.Password,
-                                    trailingIcon        = {
+                                    value                = password,
+                                    onValueChange        = { password = it },
+                                    label                = "Password",
+                                    leadingIcon          = Icons.Default.Lock,
+                                    keyboardType         = KeyboardType.Password,
+                                    trailingIcon         = {
                                         IconButton(onClick = { passwordVisible = !passwordVisible }) {
                                             Icon(
-                                                imageVector     = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                                imageVector        = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                                 contentDescription = null,
-                                                tint            = TextSecondary
+                                                tint               = TextSecondary
                                             )
                                         }
                                     },
@@ -254,13 +243,14 @@ fun AuthScreen(authViewModel: AuthViewModel) {
 
                                 Spacer(Modifier.height(16.dp))
 
+                                // Separador "ou"
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     modifier          = Modifier.fillMaxWidth()
                                 ) {
-                                    Divider(modifier = Modifier.weight(1f), color = InputBorder)
+                                    HorizontalDivider(modifier = Modifier.weight(1f), color = InputBorder)
                                     Text("  ou  ", color = TextSecondary, fontSize = 12.sp)
-                                    Divider(modifier = Modifier.weight(1f), color = InputBorder)
+                                    HorizontalDivider(modifier = Modifier.weight(1f), color = InputBorder)
                                 }
 
                                 Spacer(Modifier.height(16.dp))
@@ -273,9 +263,8 @@ fun AuthScreen(authViewModel: AuthViewModel) {
                         }
                     }
 
-                    // Mensagem de estado
+                    // ── Mensagem de estado ────────────────────────────────────
                     authState?.let { state ->
-                        val isSuccess = state == "Login efetuado!" || state.contains("Verifique")
                         AnimatedVisibility(visible = true, enter = fadeIn()) {
                             Row(
                                 modifier = Modifier
@@ -289,7 +278,7 @@ fun AuthScreen(authViewModel: AuthViewModel) {
                                     .padding(12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(text = if (isError) "⚠️" else "✅", fontSize = 14.sp)
+                                Text(if (isError) "⚠️" else "✅", fontSize = 14.sp)
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     text     = state,
@@ -311,11 +300,11 @@ fun AuthScreen(authViewModel: AuthViewModel) {
                         fontSize = 14.sp
                     )
                     Text(
-                        text         = if (isLogin) "Registe-se" else "Entrar",
-                        color        = GreenPrimary,
-                        fontSize     = 14.sp,
-                        fontWeight   = FontWeight.SemiBold,
-                        modifier     = Modifier.clickable { isLogin = !isLogin }
+                        text       = if (isLogin) "Registe-se" else "Entrar",
+                        color      = GreenPrimary,
+                        fontSize   = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier   = Modifier.clickable { isLogin = !isLogin }
                     )
                 }
             }
@@ -325,7 +314,7 @@ fun AuthScreen(authViewModel: AuthViewModel) {
     }
 }
 
-// ── Componentes ──────────────────────────────────────────────────────────────
+// ── Componentes ───────────────────────────────────────────────────────────────
 
 @Composable
 private fun TabToggle(isLogin: Boolean, onToggle: (Boolean) -> Unit) {
@@ -376,26 +365,26 @@ private fun StyledTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None
 ) {
     OutlinedTextField(
-        value               = value,
-        onValueChange       = onValueChange,
-        label               = { Text(label, fontSize = 13.sp) },
-        leadingIcon         = {
-            Icon(imageVector = leadingIcon, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+        value                = value,
+        onValueChange        = onValueChange,
+        label                = { Text(label, fontSize = 13.sp) },
+        leadingIcon          = {
+            Icon(leadingIcon, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
         },
         trailingIcon         = trailingIcon,
         visualTransformation = visualTransformation,
         keyboardOptions      = KeyboardOptions(keyboardType = keyboardType),
         singleLine           = true,
         colors               = OutlinedTextFieldDefaults.colors(
-            focusedTextColor       = TextPrimary,
-            unfocusedTextColor     = TextPrimary,
-            focusedContainerColor  = InputBg,
-            unfocusedContainerColor= InputBg,
-            focusedBorderColor     = GreenPrimary,
-            unfocusedBorderColor   = InputBorder,
-            focusedLabelColor      = GreenPrimary,
-            unfocusedLabelColor    = TextSecondary,
-            cursorColor            = GreenPrimary
+            focusedTextColor        = TextPrimary,
+            unfocusedTextColor      = TextPrimary,
+            focusedContainerColor   = InputBg,
+            unfocusedContainerColor = InputBg,
+            focusedBorderColor      = GreenPrimary,
+            unfocusedBorderColor    = InputBorder,
+            focusedLabelColor       = GreenPrimary,
+            unfocusedLabelColor     = TextSecondary,
+            cursorColor             = GreenPrimary
         ),
         shape    = RoundedCornerShape(12.dp),
         modifier = modifier.fillMaxWidth()
@@ -405,15 +394,15 @@ private fun StyledTextField(
 @Composable
 private fun GreenButton(text: String, onClick: () -> Unit) {
     Button(
-        onClick         = onClick,
-        modifier        = Modifier.fillMaxWidth().height(52.dp),
-        shape           = RoundedCornerShape(14.dp),
-        colors          = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-        contentPadding  = PaddingValues(0.dp)
+        onClick        = onClick,
+        modifier       = Modifier.fillMaxWidth().height(52.dp),
+        shape          = RoundedCornerShape(14.dp),
+        colors         = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+        contentPadding = PaddingValues(0.dp)
     ) {
         Box(
-            modifier            = Modifier.fillMaxSize().background(Brush.linearGradient(listOf(GreenPrimary, GreenDark))),
-            contentAlignment    = Alignment.Center
+            modifier         = Modifier.fillMaxSize().background(Brush.linearGradient(listOf(GreenPrimary, GreenDark))),
+            contentAlignment = Alignment.Center
         ) {
             Text(text, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 0.3.sp)
         }

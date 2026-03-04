@@ -16,13 +16,13 @@ class UserViewModel : ViewModel() {
     private val auth      = SupabaseClient.supabase.auth
     private val postgrest = SupabaseClient.supabase.postgrest
 
-    private val _userEmail = MutableStateFlow(auth.currentUserOrNull()?.email ?: "Utilizador")
+    private val _userEmail = MutableStateFlow(auth.currentUserOrNull()?.email ?: "")
     val userEmail: StateFlow<String> = _userEmail
 
     private val _cardState = MutableStateFlow<CardState>(CardState.Idle)
     val cardState: StateFlow<CardState> = _cardState
 
-    // ── Criar Cartão Digital ──────────────────────────────────────────────────
+    // ── Criar Cartão Digital ───────────────────────────────────────────────────
     fun criarCartao(tipoPasse: String, onSucesso: () -> Unit) {
         val user = auth.currentUserOrNull() ?: return
         viewModelScope.launch {
@@ -31,90 +31,56 @@ class UserViewModel : ViewModel() {
                 val hoje          = LocalDate.now().toString()
                 val expirySemanal = LocalDate.now().plusDays(7).toString()
 
-                // Apaga cartão anterior caso exista
-                postgrest["user_cards"].delete {
-                    filter { eq("user_id", user.id) }
-                }
+                postgrest["user_cards"].delete { filter { eq("user_id", user.id) } }
 
                 when (tipoPasse) {
                     "MENSAL" -> postgrest["user_cards"].insert(
-                        NovoCartaoMensal(
-                            userId          = user.id,
-                            cardType        = tipoPasse,
-                            isActive        = true,
-                            saldo           = 0.0,
-                            tripsLeft       = 0,
-                            totalTrips      = 0,
-                            renewalDate     = hoje,
-                            lastRenewalDate = hoje
-                        )
+                        NovoCartaoMensal(userId = user.id, cardType = tipoPasse, isActive = true, saldo = 0.0, tripsLeft = 0, totalTrips = 0, renewalDate = hoje)
                     )
                     "SEMANAL" -> postgrest["user_cards"].insert(
-                        NovoCartaoSemanal(
-                            userId     = user.id,
-                            cardType   = tipoPasse,
-                            isActive   = true,
-                            saldo      = 0.0,
-                            tripsLeft  = 10,
-                            totalTrips = 0,
-                            expiryDate = expirySemanal
-                        )
+                        NovoCartaoSemanal(userId = user.id, cardType = tipoPasse, isActive = true, saldo = 0.0, tripsLeft = 10, totalTrips = 0, expiryDate = expirySemanal)
                     )
                     "DIARIO" -> postgrest["user_cards"].insert(
-                        NovoCartaoDiario(
-                            userId     = user.id,
-                            cardType   = tipoPasse,
-                            isActive   = true,
-                            saldo      = 0.0,
-                            tripsLeft  = 0,
-                            totalTrips = 0
-                        )
+                        NovoCartaoDiario(userId = user.id, cardType = tipoPasse, isActive = true, saldo = 0.0, tripsLeft = 0, totalTrips = 0)
                     )
-                    else -> {
-                        _cardState.value = CardState.Error("Tipo de passe inválido.")
-                        return@launch
-                    }
+                    else -> { _cardState.value = CardState.Error("Tipo de passe inválido."); return@launch }
                 }
 
                 postgrest["profiles"].update({
-                    set("has_card", true)
+                    set("has_card",  true)
                     set("card_type", tipoPasse)
-                }) {
-                    filter { eq("id", user.id) }
-                }
+                }) { filter { eq("id", user.id) } }
 
                 _cardState.value = CardState.Success("Cartão $tipoPasse criado com sucesso!")
                 onSucesso()
 
             } catch (e: Exception) {
                 e.printStackTrace()
-                android.util.Log.e("CARTAO_ERRO", "Erro: ${e.message}")
                 _cardState.value = CardState.Error("Erro: ${e.localizedMessage}")
             }
         }
     }
 
-    // ── Registar Cartão Físico ────────────────────────────────────────────────
-    fun registarCartaoFisico(uid: String, onSucesso: () -> Unit) {
+    // ── Registar Cartão Físico (guarda nome do titular) ───────────────────────
+    fun registarCartaoFisico(uid: String, cardHolderName: String = "", onSucesso: () -> Unit) {
         val user = auth.currentUserOrNull() ?: return
         viewModelScope.launch {
             _cardState.value = CardState.Loading
             try {
-                // Verifica se já existe um cartão para este utilizador
                 val cartaoExistente = postgrest["user_cards"]
                     .select { filter { eq("user_id", user.id) } }
                     .decodeSingleOrNull<UserCard>()
 
                 if (cartaoExistente != null) {
-                    // Já tem cartão digital — apenas associa o cartão físico
+                    // Já tem cartão digital — associa o UID físico e guarda o nome
                     postgrest["user_cards"].update({
-                        set("physical_card_uid", uid)
-                        set("has_physical_card", true)
-                    }) {
-                        filter { eq("user_id", user.id) }
-                    }
+                        set("physical_card_uid",  uid)
+                        set("has_physical_card",  true)
+                        set("is_active",          true)
+                        set("card_holder_name",   cardHolderName)
+                    }) { filter { eq("user_id", user.id) } }
                 } else {
-                    // Não tem cartão — cria um novo com o cartão físico associado
+                    // Não tem cartão — cria novo com cartão físico
                     postgrest["user_cards"].insert(
                         NovoCartaoFisico(
                             userId          = user.id,
@@ -124,16 +90,14 @@ class UserViewModel : ViewModel() {
                             tripsLeft       = 0,
                             totalTrips      = 0,
                             physicalCardUid = uid,
-                            hasPhysicalCard = true
+                            hasPhysicalCard = true,
+                            cardHolderName  = cardHolderName
                         )
                     )
-
                     postgrest["profiles"].update({
-                        set("has_card", true)
+                        set("has_card",  true)
                         set("card_type", "FISICO")
-                    }) {
-                        filter { eq("id", user.id) }
-                    }
+                    }) { filter { eq("id", user.id) } }
                 }
 
                 _cardState.value = CardState.Success("Cartão físico associado com sucesso!")
@@ -147,7 +111,34 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    // ── Carregar Saldo (Diário) ───────────────────────────────────────────────
+    // ── Eliminar Cartão (apaga da BD e reseta o perfil) ───────────────────────
+    fun eliminarCartao(onSucesso: () -> Unit) {
+        val user = auth.currentUserOrNull() ?: return
+        viewModelScope.launch {
+            _cardState.value = CardState.Loading
+            try {
+                // 1. Apaga o cartão da tabela user_cards
+                postgrest["user_cards"].delete {
+                    filter { eq("user_id", user.id) }
+                }
+
+                // 2. Reseta o perfil: sem cartão, sem tipo
+                postgrest["profiles"].update({
+                    set("has_card",  false)
+                    set("card_type", null as String?)
+                }) { filter { eq("id", user.id) } }
+
+                _cardState.value = CardState.Success("Cartão eliminado com sucesso!")
+                onSucesso()
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _cardState.value = CardState.Error("Erro ao eliminar cartão: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    // ── Carregar Saldo (Diário) ────────────────────────────────────────────────
     fun carregarSaldo(valor: Double, onSucesso: () -> Unit) {
         val user = auth.currentUserOrNull() ?: return
         viewModelScope.launch {
@@ -158,12 +149,10 @@ class UserViewModel : ViewModel() {
                     .decodeSingleOrNull<UserCard>()
 
                 val novoSaldo = (cartaoAtual?.saldo ?: 0.0) + valor
-
                 postgrest["user_cards"].update({
-                    set("saldo", novoSaldo)
-                }) {
-                    filter { eq("user_id", user.id) }
-                }
+                    set("saldo",     novoSaldo)
+                    set("is_active", true)
+                }) { filter { eq("user_id", user.id) } }
 
                 _cardState.value = CardState.Success("Saldo carregado: +€${String.format("%.2f", valor)}")
                 onSucesso()
@@ -175,21 +164,17 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    // ── Renovar Passe Mensal ──────────────────────────────────────────────────
+    // ── Renovar Passe Mensal ───────────────────────────────────────────────────
     fun renovarPasseMensal(onSucesso: () -> Unit) {
         val user = auth.currentUserOrNull() ?: return
         viewModelScope.launch {
             _cardState.value = CardState.Loading
             try {
-                val hoje = LocalDate.now().toString()
                 postgrest["user_cards"].update({
-                    set("renewal_date", hoje)
-                    set("last_renewal_date", hoje)
-                    set("is_active", true)
-                }) {
-                    filter { eq("user_id", user.id) }
-                }
-                _cardState.value = CardState.Success("Passe renovado até ao fim do mês!")
+                    set("renewal_date", LocalDate.now().toString())
+                    set("is_active",    true)
+                }) { filter { eq("user_id", user.id) } }
+                _cardState.value = CardState.Success("Passe renovado!")
                 onSucesso()
             } catch (e: Exception) {
                 _cardState.value = CardState.Error("Erro ao renovar passe: ${e.localizedMessage}")
@@ -198,26 +183,25 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    // ── Validar Cartão ────────────────────────────────────────────────────────
+    // ── Validar Cartão ─────────────────────────────────────────────────────────
     fun isCardValid(card: UserCard?, cardType: String?): Boolean {
         if (card == null || !card.isActive) return false
         return when (cardType) {
             "MENSAL" -> {
                 val renewalDate = card.renewalDate?.let { LocalDate.parse(it) } ?: return false
-                renewalDate.month == LocalDate.now().month &&
-                        renewalDate.year == LocalDate.now().year
+                renewalDate.month == LocalDate.now().month && renewalDate.year == LocalDate.now().year
             }
             "SEMANAL" -> {
                 val expiry = card.expiryDate?.let { LocalDate.parse(it) } ?: return false
                 card.tripsLeft > 0 && LocalDate.now().isBefore(expiry.plusDays(1))
             }
-            "DIARIO"  -> card.saldo > 0.0
-            "FISICO"  -> card.hasPhysicalCard == true
-            else      -> false
+            "DIARIO" -> card.saldo > 0.0
+            "FISICO" -> card.hasPhysicalCard == true
+            else     -> false
         }
     }
 
-    // ── Registar Viagem (NFC) ─────────────────────────────────────────────────
+    // ── Registar Viagem (NFC) ──────────────────────────────────────────────────
     fun registarViagem(routeId: Int, farePaid: Double, cardType: String?, onSucesso: () -> Unit, onErro: (String) -> Unit) {
         val user = auth.currentUserOrNull() ?: return
         viewModelScope.launch {
@@ -227,42 +211,23 @@ class UserViewModel : ViewModel() {
                     .decodeSingleOrNull<UserCard>()
 
                 if (!isCardValid(cartao, cardType)) {
-                    val msg = when (cardType) {
+                    onErro(when (cardType) {
                         "MENSAL"  -> "Passe mensal expirado. Por favor renove."
                         "SEMANAL" -> if ((cartao?.tripsLeft ?: 0) == 0) "Sem viagens disponíveis." else "Passe semanal expirado."
                         "DIARIO"  -> "Saldo insuficiente. Por favor carregue o cartão."
                         "FISICO"  -> "Cartão físico não reconhecido."
                         else      -> "Cartão inválido."
-                    }
-                    onErro(msg)
+                    })
                     return@launch
                 }
 
                 when (cardType) {
-                    "SEMANAL" -> postgrest["user_cards"].update({
-                        set("trips_left",  cartao!!.tripsLeft  - 1)
-                        set("total_trips", cartao.totalTrips + 1)
-                    }) { filter { eq("user_id", user.id) } }
-
-                    "DIARIO" -> postgrest["user_cards"].update({
-                        set("saldo",       cartao!!.saldo - farePaid)
-                        set("total_trips", cartao.totalTrips + 1)
-                    }) { filter { eq("user_id", user.id) } }
-
-                    "MENSAL", "FISICO" -> postgrest["user_cards"].update({
-                        set("total_trips", (cartao?.totalTrips ?: 0) + 1)
-                    }) { filter { eq("user_id", user.id) } }
+                    "SEMANAL" -> postgrest["user_cards"].update({ set("trips_left", cartao!!.tripsLeft - 1); set("total_trips", cartao.totalTrips + 1) }) { filter { eq("user_id", user.id) } }
+                    "DIARIO"  -> postgrest["user_cards"].update({ set("saldo", cartao!!.saldo - farePaid); set("total_trips", cartao.totalTrips + 1) }) { filter { eq("user_id", user.id) } }
+                    "MENSAL", "FISICO" -> postgrest["user_cards"].update({ set("total_trips", (cartao?.totalTrips ?: 0) + 1) }) { filter { eq("user_id", user.id) } }
                 }
 
-                postgrest["trip_history"].insert(
-                    NovaViagem(
-                        userId   = user.id,
-                        routeId  = routeId,
-                        farePaid = farePaid,
-                        tripDate = java.time.Instant.now().toString()
-                    )
-                )
-
+                postgrest["trip_history"].insert(NovaViagem(userId = user.id, routeId = routeId, farePaid = farePaid, tripDate = java.time.Instant.now().toString()))
                 onSucesso()
 
             } catch (e: Exception) {
@@ -272,13 +237,10 @@ class UserViewModel : ViewModel() {
         }
     }
 
-    // ── Limpar Estado ─────────────────────────────────────────────────────────
-    fun clearState() {
-        _cardState.value = CardState.Idle
-    }
+    fun clearState() { _cardState.value = CardState.Idle }
 }
 
-// ── Estado do Cartão ──────────────────────────────────────────────────────────
+// ── Estados ────────────────────────────────────────────────────────────────────
 sealed class CardState {
     object Idle    : CardState()
     object Loading : CardState()
@@ -286,18 +248,16 @@ sealed class CardState {
     data class Error(val message: String)   : CardState()
 }
 
-// ── Data Classes @Serializable para INSERT ────────────────────────────────────
-
+// ── Data Classes para INSERT ───────────────────────────────────────────────────
 @Serializable
 data class NovoCartaoMensal(
-    @SerialName("user_id")            val userId: String,
-    @SerialName("card_type")          val cardType: String,
-    @SerialName("is_active")          val isActive: Boolean,
+    @SerialName("user_id")      val userId: String,
+    @SerialName("card_type")    val cardType: String,
+    @SerialName("is_active")    val isActive: Boolean,
     val saldo: Double,
-    @SerialName("trips_left")         val tripsLeft: Int,
-    @SerialName("total_trips")        val totalTrips: Int,
-    @SerialName("renewal_date")       val renewalDate: String,
-    @SerialName("last_renewal_date")  val lastRenewalDate: String
+    @SerialName("trips_left")   val tripsLeft: Int,
+    @SerialName("total_trips")  val totalTrips: Int,
+    @SerialName("renewal_date") val renewalDate: String
 )
 
 @Serializable
@@ -330,7 +290,8 @@ data class NovoCartaoFisico(
     @SerialName("trips_left")        val tripsLeft: Int,
     @SerialName("total_trips")       val totalTrips: Int,
     @SerialName("physical_card_uid") val physicalCardUid: String,
-    @SerialName("has_physical_card") val hasPhysicalCard: Boolean
+    @SerialName("has_physical_card") val hasPhysicalCard: Boolean,
+    @SerialName("card_holder_name")  val cardHolderName: String = ""
 )
 
 @Serializable

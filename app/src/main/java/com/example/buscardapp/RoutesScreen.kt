@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,22 +21,23 @@ import androidx.compose.ui.unit.sp
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
 
+// Usa a paleta global de HomeScreen.kt:
+// BgDeep, BgCard, GreenPrimary, GreenDark, TextPrimary, TextSecondary,
+// InputBg, SurfaceBorder, BluePrimary
+
 @Composable
 fun RoutesScreen() {
-    // ESTADOS
-    var routesList by remember { mutableStateOf(listOf<BusRoute>()) }
+    var routesList     by remember { mutableStateOf(listOf<BusRoute>()) }
     var originSelected by remember { mutableStateOf("") }
-    var destSelected by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(true) }
+    var destSelected   by remember { mutableStateOf("") }
+    var isLoading      by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
-    // 1. CARREGAR DADOS DA DB
     LaunchedEffect(Unit) {
         scope.launch {
             try {
-                val results = SupabaseClient.supabase.postgrest["bus_routes"]
+                routesList = SupabaseClient.supabase.postgrest["bus_routes"]
                     .select().decodeList<BusRoute>()
-                routesList = results
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -44,89 +46,109 @@ fun RoutesScreen() {
         }
     }
 
-    // 2. LÓGICA DE FILTRAGEM
     val origins = routesList.map { it.origin }.distinct().sorted()
     val destinations = routesList
         .filter { originSelected == "" || it.origin == originSelected }
-        .map { it.destination }
-        .distinct()
-        .sorted()
+        .map { it.destination }.distinct().sorted()
 
     val filteredRoutes = routesList.filter {
-        val matchOrigin = originSelected == "" || it.origin == originSelected
-        val matchDest = destSelected == "" || it.destination == destSelected
-        matchOrigin && matchDest
+        (originSelected == "" || it.origin == originSelected) &&
+                (destSelected   == "" || it.destination == destSelected)
     }
 
-    // --- UI PRINCIPAL ---
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
-            .padding(24.dp)
+            .background(BgDeep)
+            .padding(horizontal = 20.dp)
     ) {
-        Text(
-            text = "Explorar Rotas",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF2D5A41)
-        )
-        Text(text = "Selecione o seu trajeto", fontSize = 16.sp, color = Color.Gray)
+        Spacer(Modifier.height(52.dp))
 
-        Spacer(modifier = Modifier.height(32.dp))
+        // ── Header ─────────────────────────────────────────────────────────────
+        Text("Explorar Rotas", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text("Selecione o seu trajeto", fontSize = 14.sp, color = TextSecondary, modifier = Modifier.padding(top = 2.dp))
 
-        // --- CARD DE SELEÇÃO (VISUAL PREMIUM) ---
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(2.dp)
+        Spacer(Modifier.height(24.dp))
+
+        // ── Seletores de rota ──────────────────────────────────────────────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(BgCard)
+                .border(1.dp, SurfaceBorder, RoundedCornerShape(20.dp))
+                .padding(16.dp)
         ) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                // SELETOR PARTIDA
-                CustomRouteSelector(
-                    label = "Partida",
+            Column {
+                RouteSelector(
+                    label    = "Partida",
                     selected = if (originSelected == "") "Selecionar Origem" else originSelected,
-                    options = origins
+                    options  = origins,
+                    icon     = Icons.Default.TripOrigin,
+                    accent   = GreenPrimary
                 ) {
                     originSelected = it
-                    destSelected = "" // Reseta destino para nova origem
+                    destSelected   = ""
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                HorizontalDivider(
+                    modifier  = Modifier.padding(vertical = 12.dp),
+                    thickness = 0.5.dp,
+                    color     = SurfaceBorder
+                )
 
-                // SELETOR CHEGADA
-                CustomRouteSelector(
-                    label = "Chegada",
+                RouteSelector(
+                    label    = "Chegada",
                     selected = if (destSelected == "") "Selecionar Destino" else destSelected,
-                    options = destinations,
-                    enabled = originSelected != ""
+                    options  = destinations,
+                    icon     = Icons.Default.LocationOn,
+                    accent   = BluePrimary,
+                    enabled  = originSelected != ""
                 ) {
                     destSelected = it
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(Modifier.height(20.dp))
 
-        // --- LISTAGEM DE RESULTADOS ---
-        if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = Color(0xFF2D5A41))
-            }
-        } else {
-            if (filteredRoutes.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Nenhuma rota disponível", color = Color.Gray)
+        // ── Contagem de resultados ─────────────────────────────────────────────
+        if (!isLoading && filteredRoutes.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Rotas disponíveis", color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(GreenPrimary.copy(0.2f)).padding(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text("${filteredRoutes.size}", color = GreenPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-            } else {
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+
+        // ── Lista de rotas ─────────────────────────────────────────────────────
+        when {
+            isLoading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = GreenPrimary)
+                }
+            }
+            filteredRoutes.isEmpty() -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.SearchOff, null, tint = TextSecondary, modifier = Modifier.size(48.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text("Nenhuma rota disponível", color = TextSecondary, fontSize = 15.sp)
+                    }
+                }
+            }
+            else -> {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    contentPadding = PaddingValues(bottom = 20.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding      = PaddingValues(bottom = 100.dp)
                 ) {
                     items(filteredRoutes) { route ->
-                        RouteItemDesign(route)
+                        RouteCard(route)
                     }
                 }
             }
@@ -134,60 +156,61 @@ fun RoutesScreen() {
     }
 }
 
+// ── Selector de Rota ───────────────────────────────────────────────────────────
 @Composable
-fun CustomRouteSelector(
+private fun RouteSelector(
     label: String,
     selected: String,
     options: List<String>,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    accent: Color,
     enabled: Boolean = true,
     onSelect: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val isPlaceholder = selected.contains("Selecionar")
 
     Column {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.Gray,
-            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-        )
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = TextSecondary, letterSpacing = 1.sp, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, Color(0xFFE9ECEF), RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (enabled) InputBg else InputBg.copy(0.5f))
+                .border(1.dp, if (!isPlaceholder) accent.copy(0.4f) else SurfaceBorder, RoundedCornerShape(12.dp))
                 .clickable(enabled = enabled) { expanded = true }
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = if (enabled) Color(0xFF2D5A41) else Color.LightGray,
-                    modifier = Modifier.size(20.dp)
+                    icon, null,
+                    tint     = if (enabled && !isPlaceholder) accent else TextSecondary,
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
                 Text(
-                    text = selected,
-                    color = if (selected.contains("Selecionar")) Color.LightGray else Color.Black,
+                    text     = selected,
+                    color    = if (isPlaceholder) TextSecondary else TextPrimary,
+                    fontSize = 14.sp,
                     modifier = Modifier.weight(1f)
                 )
-                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color.Gray)
+                Icon(Icons.Default.ExpandMore, null, tint = TextSecondary, modifier = Modifier.size(18.dp))
             }
 
             DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.fillMaxWidth(0.85f).background(Color.White)
+                expanded          = expanded,
+                onDismissRequest  = { expanded = false },
+                modifier          = Modifier.background(BgCard).border(1.dp, SurfaceBorder, RoundedCornerShape(12.dp))
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
-                        text = { Text(option) },
+                        text   = { Text(option, color = TextPrimary, fontSize = 14.sp) },
                         onClick = {
                             onSelect(option)
                             expanded = false
-                        }
+                        },
+                        modifier = Modifier.background(BgCard)
                     )
                 }
             }
@@ -195,51 +218,63 @@ fun CustomRouteSelector(
     }
 }
 
+// ── Route Card ─────────────────────────────────────────────────────────────────
 @Composable
-fun RouteItemDesign(route: BusRoute) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F3F5))
+private fun RouteCard(route: BusRoute) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(BgCard)
+            .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                color = Color.White,
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.size(48.dp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Ícone
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(GreenPrimary.copy(0.15f)),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.DirectionsBus,
-                    contentDescription = null,
-                    tint = Color(0xFF2D5A41),
-                    modifier = Modifier.padding(10.dp)
-                )
+                Icon(Icons.Default.DirectionsBus, null, tint = GreenPrimary, modifier = Modifier.size(24.dp))
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(Modifier.width(14.dp))
 
             Column(modifier = Modifier.weight(1f)) {
+                // Rota
                 Text(
-                    text = "${route.origin} → ${route.destination}",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
+                    text       = "${route.origin} → ${route.destination}",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize   = 15.sp,
+                    color      = TextPrimary
                 )
-                Text(
-                    text = "Linha ${route.route_number} • ${route.duration}",
-                    fontSize = 13.sp,
-                    color = Color.Gray
-                )
+                Spacer(Modifier.height(4.dp))
+                // Detalhes
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(InputBg).padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text("Linha ${route.route_number}", color = TextSecondary, fontSize = 11.sp)
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Default.Schedule, null, tint = TextSecondary, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(route.duration, color = TextSecondary, fontSize = 12.sp)
+                }
             }
 
-            Text(
-                text = "${"%.2f".format(route.price)}€",
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 18.sp,
-                color = Color(0xFF2D5A41)
-            )
+            // Preço
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text       = "€${"%.2f".format(route.price)}",
+                    fontWeight = FontWeight.Bold,
+                    fontSize   = 18.sp,
+                    color      = GreenPrimary
+                )
+            }
         }
     }
 }

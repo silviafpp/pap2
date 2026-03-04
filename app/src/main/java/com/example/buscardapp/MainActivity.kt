@@ -9,11 +9,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.buscardapp.ui.theme.BusCardAppTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
 
 class MainActivity : ComponentActivity() {
 
@@ -26,20 +26,19 @@ class MainActivity : ComponentActivity() {
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
 
         setContent {
-            // ── Modo Escuro persistido via DataStore ──────────────────────────
             val themePrefs = remember { ThemePreferences(applicationContext) }
             val scope      = rememberCoroutineScope()
 
-            // Valor inicial: lê do DataStore antes de mostrar UI
-            var isDarkMode by remember { mutableStateOf(false) }
+            // isDarkMode começa como false → tema branco por defeito
+            var isDarkMode  by remember { mutableStateOf(false) }
             var themeLoaded by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
                 isDarkMode  = themePrefs.isDarkMode.first()
+                isDarkTheme = isDarkMode   // sincroniza as cores globais
                 themeLoaded = true
             }
 
-            // Só renderiza quando o tema estiver carregado (evita flash)
             if (!themeLoaded) return@setContent
 
             var showNfcSheet by remember { mutableStateOf(false) }
@@ -52,7 +51,8 @@ class MainActivity : ComponentActivity() {
                         authViewModel          = authViewModel,
                         isDarkMode             = isDarkMode,
                         onThemeToggle          = { newValue ->
-                            isDarkMode = newValue
+                            isDarkMode  = newValue
+                            isDarkTheme = newValue   // atualiza cores globais em tempo real
                             scope.launch { themePrefs.setDarkMode(newValue) }
                         },
                         onCardClick            = { showNfcSheet = true },
@@ -89,8 +89,8 @@ class MainActivity : ComponentActivity() {
             intent.action == NfcAdapter.ACTION_TECH_DISCOVERED
         ) {
             val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
-            tag?.let {
-                physicalCardUid = it.id.joinToString("") { byte -> "%02X".format(byte) }
+            tag?.let { nfcTag ->
+                physicalCardUid = nfcTag.id.joinToString("") { b: Byte -> "%02X".format(b) }
             }
         }
     }
